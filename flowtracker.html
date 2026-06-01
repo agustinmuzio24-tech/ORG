@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flow Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d14; color: #e0e0f0; font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-thumb { background: #2a2a38; border-radius: 99px; }
+  #app { max-width: 480px; margin: 0 auto; padding: 0 0 100px; }
+
+  .header { padding: 28px 20px 0; }
+  .logo { display: flex; align-items: baseline; gap: 8px; margin-bottom: 24px; }
+  .logo-main { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: #fff; }
+  .logo-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: #3ecf8e; letter-spacing: 2px; }
+
+  .tabs { display: flex; gap: 4px; background: #14141e; border-radius: 12px; padding: 4px; margin-bottom: 24px; }
+  .tab { flex: 1; padding: 8px 0; border-radius: 9px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: #555; background: transparent; transition: all 0.15s; }
+  .tab.active { background: #1e1e2e; color: #e0e0f0; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+  .content { padding: 0 20px; }
+
+  /* progress ring */
+  .ring-wrap { display: flex; align-items: center; gap: 20px; background: #14141e; border-radius: 16px; padding: 16px 20px; margin-bottom: 24px; }
+  .ring-svg { flex-shrink: 0; }
+  .ring-info { flex: 1; }
+  .ring-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #e0e0f0; }
+  .ring-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: #555; margin-top: 2px; }
+  .ring-stat { font-family: 'DM Mono', monospace; font-size: 12px; color: #3ecf8e; margin-top: 6px; }
+
+  /* day nav */
+  .day-nav { display: flex; gap: 6px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px; }
+  .day-btn { flex-shrink: 0; padding: 8px 10px; border-radius: 10px; border: none; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 11px; min-width: 48px; transition: all 0.15s; background: #1a1a24; color: #aaa; }
+  .day-btn.today { outline: 1px solid #3ecf8e44; color: #3ecf8e; background: #3ecf8e18; font-weight: 700; }
+  .day-btn.selected { background: #3ecf8e; color: #0d1a14; font-weight: 700; outline: none; }
+  .day-btn.past { color: #444; }
+
+  /* section */
+  .section { margin-bottom: 24px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px; color: #555; text-transform: uppercase; }
+  .add-btn { font-size: 20px; background: none; border: none; color: #3ecf8e; cursor: pointer; line-height: 1; padding: 0 4px; }
+  .empty { font-size: 12px; color: #333; font-style: italic; padding: 4px 0; }
+
+  /* task */
+  .task { border-radius: 12px; background: #1a1a24; margin-bottom: 8px; transition: background 0.2s; overflow: hidden; }
+  .task.done { background: rgba(62,207,142,0.06); }
+  .task.skipped { background: rgba(224,92,92,0.06); opacity: 0.5; }
+  .task-main { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .status-btn { width: 28px; height: 28px; border-radius: 8px; border: 2px solid #3a3a4a; background: transparent; color: #3a3a4a; cursor: pointer; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 13px; color: #d0d0e0; display: block; }
+  .task.done .task-title { text-decoration: line-through; color: #666; }
+  .task-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .priority-dot { width: 6px; height: 6px; border-radius: 99px; flex-shrink: 0; }
+  .tag-chip { font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 6px; border-radius: 99px; background: #2a2a38; color: #888; }
+  .due-label { font-family: 'DM Mono', monospace; font-size: 10px; color: #888; }
+  .due-label.overdue { color: #e05c5c; }
+  .due-label.soon { color: #e6a817; }
+  .task-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .delete-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 16px; padding: 2px; }
+  .delete-btn:hover { color: #888; }
+  .note-toggle { background: none; border: none; color: #444; cursor: pointer; font-size: 11px; padding: 2px 4px; }
+  .note-toggle:hover { color: #888; }
+  .task-note { padding: 0 12px 10px 50px; font-size: 12px; color: #666; font-style: italic; border-top: none; line-height: 1.5; }
+
+  /* goal */
+  .goal { padding: 12px 14px; border-radius: 12px; background: #1a1a24; margin-bottom: 8px; border: 1px solid transparent; transition: all 0.2s; }
+  .goal.goal-done { background: rgba(62,207,142,0.08); border-color: rgba(62,207,142,0.2); }
+  .goal-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .goal-title { flex: 1; font-size: 13px; color: #d0d0e0; }
+  .goal.goal-done .goal-title { color: #3ecf8e; }
+  .goal-count { font-family: 'DM Mono', monospace; font-size: 11px; color: #888; }
+  .goal-bottom { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { flex: 1; height: 4px; border-radius: 99px; background: #2a2a38; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; background: #e6a817; transition: width 0.3s; }
+  .goal.goal-done .progress-fill { background: #3ecf8e; }
+  .counter-btn { width: 22px; height: 22px; border-radius: 6px; border: none; background: #2a2a38; color: #aaa; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .counter-btn.plus { background: #3ecf8e22; color: #3ecf8e; }
+  .counter-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+  .modal { width: 100%; max-width: 480px; background: #1a1a24; border-radius: 18px 18px 0 0; padding: 24px 20px 36px; border: 1px solid #2a2a38; max-height: 90vh; overflow-y: auto; }
+  .modal-label { font-family: 'DM Mono', monospace; font-size: 12px; color: #666; margin-bottom: 14px; letter-spacing: 1px; }
+  .modal input[type=text], .modal input[type=date], .modal textarea {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #2a2a38;
+    background: #0d0d14; color: #e0e0f0; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    outline: none; margin-bottom: 12px; display: block;
+  }
+  .modal input[type=date] { color-scheme: dark; }
+  .modal textarea { resize: vertical; min-height: 60px; }
+  .modal-row-label { font-size: 11px; color: #666; margin-bottom: 6px; font-family: 'DM Mono', monospace; letter-spacing: 1px; }
+  .type-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .type-btn { flex: 1; padding: 8px 0; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; background: #14141e; color: #666; transition: all 0.15s; }
+  .type-btn.active-task { background: #3ecf8e22; color: #3ecf8e; }
+  .type-btn.active-goal { background: #e6a81722; color: #e6a817; }
+  .target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .target-label { font-size: 12px; color: #888; }
+  .target-val { font-family: 'DM Mono', monospace; font-size: 16px; color: #e0e0f0; min-width: 24px; text-align: center; }
+  .priority-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .prio-btn { flex: 1; padding: 7px 0; border-radius: 8px; border: none; cursor: pointer; font-size: 11px; font-family: 'DM Sans', sans-serif; background: #14141e; transition: all 0.15s; }
+  .prio-btn.sel-alta { background: #e05c5c22; color: #e05c5c; }
+  .prio-btn.sel-media { background: #e6a81722; color: #e6a817; }
+  .prio-btn.sel-baja { background: #3ecf8e22; color: #3ecf8e; }
+  .prio-btn:not([class*=sel-]) { color: #555; }
+  .tags-input-wrap { margin-bottom: 12px; }
+  .submit-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #3ecf8e; color: #0d1a14; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="logo">
+      <span class="logo-main">Flow</span>
+      <span class="logo-sub">TRACKER</span>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="setView('dia')">Día</button>
+      <button class="tab" onclick="setView('semana')">Semana</button>
+      <button class="tab" onclick="setView('mes')">Mes</button>
+    </div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="closeModalIfOverlay(event)">
+  <div class="modal">
+    <div class="modal-label" id="modal-label">NUEVO ITEM</div>
+    <input type="text" id="modal-input" placeholder="Nombre..." onkeydown="if(event.key==='Enter') submitItem()" />
+
+    <!-- type toggle -->
+    <div class="type-row">
+      <button class="type-btn active-task" id="btn-task" onclick="setModalType('task')">Tarea</button>
+      <button class="type-btn" id="btn-goal" onclick="setModalType('goal')">Objetivo con meta</button>
+    </div>
+
+    <!-- goal target -->
+    <div class="target-row" id="target-row" style="display:none">
+      <span class="target-label">Meta:</span>
+      <button class="counter-btn" onclick="changeTarget(-1)">−</button>
+      <span class="target-val" id="target-val">1</span>
+      <button class="counter-btn plus" onclick="changeTarget(1)">+</button>
+    </div>
+
+    <!-- priority -->
+    <div class="modal-row-label">PRIORIDAD</div>
+    <div class="priority-row">
+      <button class="prio-btn" id="prio-alta" onclick="setPriority('alta')">🔴 Alta</button>
+      <button class="prio-btn" id="prio-media" onclick="setPriority('media')">🟡 Media</button>
+      <button class="prio-btn sel-baja" id="prio-baja" onclick="setPriority('baja')">🟢 Baja</button>
+    </div>
+
+    <!-- tags -->
+    <div class="modal-row-label">ETIQUETA (opcional)</div>
+    <input type="text" id="modal-tag" placeholder="ej: facultad, trading, personal..." style="margin-bottom:12px" />
+
+    <!-- due date (shown only for month) -->
+    <div id="due-wrap" style="display:none">
+      <div class="modal-row-label">VENCIMIENTO (opcional)</div>
+      <input type="date" id="modal-due" />
+    </div>
+
+    <!-- note -->
+    <div class="modal-row-label">NOTA (opcional)</div>
+    <textarea id="modal-note" placeholder="Contexto, detalles..."></textarea>
+
+    <button class="submit-btn" onclick="submitItem()">Agregar</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'flowtracker_v3';
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAY_NAMES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const PRIORITY_COLOR = { alta: '#e05c5c', media: '#e6a817', baja: '#3ecf8e' };
+
+let state = {
+  view: 'dia',
+  selectedDay: '',
+  tasks: [],
+  goals: [],
+  modal: null,
+  modalType: 'task',
+  modalTarget: 1,
+  modalPriority: 'baja',
+  expandedNotes: {},
+};
+
+// ── persistence ───────────────────────────────────────────────────────────
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (d) { state.tasks = d.tasks || []; state.goals = d.goals || []; }
+  } catch(e) {}
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks: state.tasks, goals: state.goals }));
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2,9); }
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function addDays(dateStr, n) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d); dt.setDate(dt.getDate()+n);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function getNext7Days() {
+  const today = todayStr();
+  return Array.from({length:7}, (_,i) => addDays(today, i));
+}
+
+function getNext14Days() {
+  const today = todayStr();
+  return Array.from({length:14}, (_,i) => addDays(today, i));
+}
+
+function formatDayLabel(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m-1, d);
+  const dow = date.getDay();
+  const idx = dow === 0 ? 6 : dow - 1;
+  return `${DAY_NAMES[idx]} ${d}`;
+}
+
+function dueLabelText(due) {
+  if (!due) return null;
+  const today = todayStr();
+  if (due < today) return { text: `Venció ${formatDayLabel(due)}`, cls: 'overdue' };
+  const diff = Math.round((new Date(due) - new Date(today)) / 86400000);
+  if (diff === 0) return { text: 'Vence hoy', cls: 'soon' };
+  if (diff <= 3) return { text: `Vence en ${diff}d`, cls: 'soon' };
+  return { text: `Vence ${formatDayLabel(due)}`, cls: '' };
+}
+
+// ── ring SVG ──────────────────────────────────────────────────────────────
+function ringHTML(done, total, title, sub) {
+  const pct = total > 0 ? done / total : 0;
+  const r = 28, cx = 36, cy = 36, stroke = 6;
+  const circ = 2 * Math.PI * r;
+  const dash = pct * circ;
+  const color = pct === 1 ? '#3ecf8e' : pct > 0.5 ? '#e6a817' : '#3ecf8e';
+  const statText = total === 0 ? 'Sin tareas aún' : `${done} de ${total} completadas`;
+  return `<div class="ring-wrap">
+    <svg class="ring-svg" width="72" height="72" viewBox="0 0 72 72">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#2a2a38" stroke-width="${stroke}"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+        stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
+        stroke-linecap="round" style="transition:stroke-dasharray 0.4s"/>
+      <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+        font-family="DM Mono,monospace" font-size="13" font-weight="500" fill="${color}">
+        ${Math.round(pct*100)}%
+      </text>
+    </svg>
+    <div class="ring-info">
+      <div class="ring-title">${title}</div>
+      <div class="ring-sub">${sub}</div>
+      <div class="ring-stat">${statText}</div>
+    </div>
+  </div>`;
+}
+
+// ── mutations ─────────────────────────────────────────────────────────────
+const STATUS_CYCLE = ['pending','doing','done','skipped'];
+const STATUS_CONFIG = {
+  pending: { label: '—',  color: '#3a3a4a', bg: 'transparent' },
+  doing:   { label: '⟳', color: '#e6a817', bg: '#e6a817' },
+  done:    { label: '✓',  color: '#3ecf8e', bg: '#3ecf8e' },
+  skipped: { label: '✕',  color: '#e05c5c', bg: '#e05c5c' },
+};
+
+function cycleStatus(id) {
+  const t = state.tasks.find(t => t.id === id);
+  if (!t) return;
+  t.status = STATUS_CYCLE[(STATUS_CYCLE.indexOf(t.status)+1) % STATUS_CYCLE.length];
+  save(); render();
+}
+function deleteTask(id) { state.tasks = state.tasks.filter(t => t.id !== id); save(); render(); }
+function deleteGoal(id) { state.goals = state.goals.filter(g => g.id !== id); save(); render(); }
+function incrementGoal(id) {
+  const g = state.goals.find(g => g.id === id);
+  if (g && g.progress < g.target) { g.progress++; save(); render(); }
+}
+function decrementGoal(id) {
+  const g = state.goals.find(g => g.id === id);
+  if (g && g.progress > 0) { g.progress--; save(); render(); }
+}
+function toggleNote(id) {
+  state.expandedNotes[id] = !state.expandedNotes[id];
+  render();
+}
+
+// ── modal ─────────────────────────────────────────────────────────────────
+function openModal(horizon, ctx) {
+  state.modal = {horizon, ctx};
+  state.modalType = 'task';
+  state.modalTarget = 1;
+  state.modalPriority = 'baja';
+  document.getElementById('modal-input').value = '';
+  document.getElementById('modal-tag').value = '';
+  document.getElementById('modal-note').value = '';
+  document.getElementById('modal-due').value = '';
+  document.getElementById('modal-label').textContent = `NUEVO ITEM · ${horizon === 'day' ? 'DÍA' : horizon === 'week' ? 'SEMANA' : 'MES'}`;
+  document.getElementById('btn-task').className = 'type-btn active-task';
+  document.getElementById('btn-goal').className = 'type-btn';
+  document.getElementById('target-row').style.display = 'none';
+  document.getElementById('due-wrap').style.display = horizon === 'month' ? 'block' : 'none';
+  setPriority('baja');
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('modal-input').focus(), 50);
+}
+function closeModal() { state.modal = null; document.getElementById('modal').style.display = 'none'; }
+function closeModalIfOverlay(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+
+function setModalType(type) {
+  state.modalType = type;
+  document.getElementById('btn-task').className = type === 'task' ? 'type-btn active-task' : 'type-btn';
+  document.getElementById('btn-goal').className = type === 'goal' ? 'type-btn active-goal' : 'type-btn';
+  document.getElementById('target-row').style.display = type === 'goal' ? 'flex' : 'none';
+}
+function changeTarget(delta) {
+  state.modalTarget = Math.max(1, state.modalTarget + delta);
+  document.getElementById('target-val').textContent = state.modalTarget;
+}
+function setPriority(p) {
+  state.modalPriority = p;
+  ['alta','media','baja'].forEach(k => {
+    const btn = document.getElementById('prio-'+k);
+    btn.className = 'prio-btn' + (k === p ? ' sel-'+k : '');
+  });
+}
+
+function submitItem() {
+  const title = document.getElementById('modal-input').value.trim();
+  if (!title || !state.modal) return;
+  const {horizon, ctx} = state.modal;
+  const tag = document.getElementById('modal-tag').value.trim();
+  const note = document.getElementById('modal-note').value.trim();
+  const due = horizon === 'month' ? document.getElementById('modal-due').value : null;
+  const priority = state.modalPriority;
+
+  if (state.modalType === 'goal') {
+    state.goals.push({ id: uid(), title, horizon, ctx, target: state.modalTarget, progress: 0, tag, note, priority });
+  } else {
+    state.tasks.push({ id: uid(), title, horizon, ctx, status: 'pending', tag, note, due, priority });
+  }
+  save(); closeModal(); render();
+}
+
+// ── render helpers ────────────────────────────────────────────────────────
+function taskHTML(t) {
+  const cfg = STATUS_CONFIG[t.status];
+  const btnStyle = t.status !== 'pending'
+    ? `border-color:${cfg.color};background:${cfg.bg};color:#0d1a14`
+    : `border-color:${cfg.color};color:${cfg.color}`;
+  const prioColor = PRIORITY_COLOR[t.priority || 'baja'];
+  const dueInfo = dueLabelText(t.due);
+  const tagHtml = t.tag ? `<span class="tag-chip">${escHtml(t.tag)}</span>` : '';
+  const dueHtml = dueInfo ? `<span class="due-label ${dueInfo.cls}">${dueInfo.text}</span>` : '';
+  const metaHtml = (t.priority !== 'baja' || t.tag || dueInfo)
+    ? `<div class="task-meta">
+        ${t.priority && t.priority !== 'baja' ? `<span class="priority-dot" style="background:${prioColor}"></span>` : ''}
+        ${tagHtml}${dueHtml}
+       </div>` : '';
+
+  const noteBtn = t.note ? `<button class="note-toggle" onclick="toggleNote('${t.id}')" title="Ver nota">✎</button>` : '';
+  const noteHtml = (t.note && state.expandedNotes[t.id])
+    ? `<div class="task-note">${escHtml(t.note)}</div>` : '';
+
+  return `<div class="task ${t.status}">
+    <div class="task-main">
+      <button class="status-btn" style="${btnStyle}" onclick="cycleStatus('${t.id}')">${cfg.label}</button>
+      <div class="task-body">
+        <span class="task-title">${escHtml(t.title)}</span>
+        ${metaHtml}
+      </div>
+      <div class="task-actions">
+        ${noteBtn}
+        <button class="delete-btn" onclick="deleteTask('${t.id}')">×</button>
+      </div>
+    </div>
+    ${noteHtml}
+  </div>`;
+}
+
+function goalHTML(g) {
+  const pct = g.target > 0 ? (g.progress/g.target)*100 : 0;
+  const done = g.progress >= g.target;
+  const tagHtml = g.tag ? `<span class="tag-chip">${escHtml(g.tag)}</span>` : '';
+  return `<div class="goal ${done?'goal-done':''}">
+    <div class="goal-top">
+      <div style="flex:1;min-width:0">
+        <span class="goal-title">${escHtml(g.title)}</span>
+        ${g.tag ? `<div style="margin-top:4px">${tagHtml}</div>` : ''}
+      </div>
+      <span class="goal-count">${g.progress}/${g.target}</span>
+      <button class="delete-btn" onclick="deleteGoal('${g.id}')">×</button>
+    </div>
+    <div class="goal-bottom">
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <button class="counter-btn" onclick="decrementGoal('${g.id}')" ${g.progress===0?'disabled':''}>−</button>
+      <button class="counter-btn plus" onclick="incrementGoal('${g.id}')" ${done?'disabled':''}>+</button>
+    </div>
+  </div>`;
+}
+
+function sectionHTML(label, tasks, goals, horizon, ctx) {
+  const ctxEnc = escAttr(ctx);
+  let items = goals.map(goalHTML).join('') + tasks.map(taskHTML).join('');
+  if (!items) items = '<p class="empty">Sin items aún</p>';
+  return `<div class="section">
+    <div class="section-header">
+      <span class="section-label">${label}</span>
+      <button class="add-btn" onclick="openModal('${horizon}','${ctxEnc}')">+</button>
+    </div>
+    ${items}
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'"); }
+
+// ── views ─────────────────────────────────────────────────────────────────
+function renderDayView() {
+  const today = todayStr();
+  if (!state.selectedDay) state.selectedDay = today;
+  const days = getNext7Days();
+  if (!days.includes(state.selectedDay)) state.selectedDay = today;
+  const sel = state.selectedDay;
+
+  let navHTML = '<div class="day-nav">';
+  days.forEach(d => {
+    let cls = 'day-btn';
+    if (d === today) cls += ' today';
+    if (d === sel) cls += ' selected';
+    navHTML += `<button class="${cls}" onclick="selectDay('${d}')">${formatDayLabel(d)}</button>`;
+  });
+  navHTML += '</div>';
+
+  const tasks = state.tasks.filter(t => t.horizon==='day' && t.ctx===sel);
+  const goals = state.goals.filter(g => g.horizon==='day' && g.ctx===sel);
+  const done = tasks.filter(t => t.status==='done').length;
+  const total = tasks.length + goals.filter(g => g.progress >= g.target).length;
+  const totalAll = tasks.length + goals.length;
+
+  const isToday = sel === today;
+  const titleText = isToday ? 'Hoy' : formatDayLabel(sel);
+  const subText = isToday ? new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'}) : sel;
+
+  return navHTML + ringHTML(done, tasks.length, titleText, subText) + sectionHTML('Tareas del día', tasks, goals, 'day', sel);
+}
+
+function renderWeekView() {
+  const today = todayStr();
+  const days14 = getNext14Days();
+  const wk1 = days14[0], wk2 = days14[7];
+
+  // week selector
+  if (!state.selectedWeek) state.selectedWeek = wk1;
+  const wk = state.selectedWeek;
+  const weekDays = Array.from({length:7}, (_,i) => addDays(wk, i));
+
+  const [s1d] = [days14[0]]; const e1 = days14[6];
+  const [s2d] = [days14[7]]; const e2 = days14[13];
+  const lbl = (s,e) => `${formatDayLabel(s)} — ${formatDayLabel(e)}`;
+
+  let navHTML = `<div class="day-nav" style="margin-bottom:20px">
+    <button class="day-btn ${wk===wk1?'selected':''}" onclick="selectWeek('${wk1}')">Esta semana</button>
+    <button class="day-btn ${wk===wk2?'selected':''}" onclick="selectWeek('${wk2}')">Próx. semana</button>
+  </div>`;
+
+  const tasks = state.tasks.filter(t => t.horizon==='week' && t.ctx===wk);
+  const goals = state.goals.filter(g => g.horizon==='week' && g.ctx===wk);
+  const done = tasks.filter(t => t.status==='done').length;
+  const subText = lbl(wk, addDays(wk,6));
+  const titleText = wk === wk1 ? 'Esta semana' : 'Próxima semana';
+
+  return navHTML + ringHTML(done, tasks.length, titleText, subText) + sectionHTML('Tareas semanales', tasks, goals, 'week', wk);
+}
+
+function renderMonthView() {
+  const today = todayStr();
+  const p1 = today;
+  const p2 = addDays(today, 30);
+
+  if (!state.selectedMonth) state.selectedMonth = p1;
+  const mk = state.selectedMonth;
+
+  const end = addDays(mk, 29);
+  const [,m1,d1] = mk.split('-').map(Number);
+  const [,m2,d2] = end.split('-').map(Number);
+  const subText = `${d1} ${MONTH_NAMES[m1-1].slice(0,3)} — ${d2} ${MONTH_NAMES[m2-1].slice(0,3)}`;
+
+  let navHTML = `<div class="day-nav" style="margin-bottom:20px">
+    <button class="day-btn ${mk===p1?'selected':''}" onclick="selectMonth('${p1}')">Próximos 30 días</button>
+    <button class="day-btn ${mk===p2?'selected':''}" onclick="selectMonth('${p2}')">Siguientes 30 días</button>
+  </div>`;
+
+  const tasks = state.tasks.filter(t => t.horizon==='month' && t.ctx===mk);
+  const goals = state.goals.filter(g => g.horizon==='month' && g.ctx===mk);
+  const done = tasks.filter(t => t.status==='done').length;
+
+  // sort by due date
+  tasks.sort((a,b) => {
+    if (!a.due && !b.due) return 0;
+    if (!a.due) return 1; if (!b.due) return -1;
+    return a.due.localeCompare(b.due);
+  });
+
+  return navHTML + ringHTML(done, tasks.length, 'Este mes', subText) + sectionHTML('Tareas del mes', tasks, goals, 'month', mk);
+}
+
+// ── global actions ────────────────────────────────────────────────────────
+function setView(v) {
+  state.view = v;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[{dia:0,semana:1,mes:2}[v]].classList.add('active');
+  render();
+}
+function selectDay(d) { state.selectedDay = d; render(); }
+function selectWeek(w) { state.selectedWeek = w; render(); }
+function selectMonth(m) { state.selectedMonth = m; render(); }
+
+function render() {
+  const content = document.getElementById('content');
+  if (state.view === 'dia') content.innerHTML = renderDayView();
+  else if (state.view === 'semana') content.innerHTML = renderWeekView();
+  else content.innerHTML = renderMonthView();
+}
+
+load();
+state.selectedDay = todayStr();
+render();
+</script>
+</body>
+</html>
